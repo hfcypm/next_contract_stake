@@ -1,24 +1,23 @@
-@import "tailwindcss";
+/* 仅保留 v3 核心指令（关键：删除 @import "tailwindcss";） */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* 自定义 CSS 变量（v3 中直接写，无需 @theme） */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0c4a6e;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* 暗黑模式适配 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #0c4a6e;
     --foreground: #ededed;
   }
 }
 
+/* 全局样式 */
 body {
   background: var(--background);
   color: var(--foreground);
