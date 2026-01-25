@@ -6,6 +6,7 @@ import { FiZap } from "react-icons/fi";
 import { cn } from "../utils/cn";
 import { motion } from "framer-motion";
 import Links from "./const/Path";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 const ContractHeader = () => {
     const pathName = usePathname();
 
@@ -37,7 +38,7 @@ const ContractHeader = () => {
                                     {isActive && (
                                         <motion.div
                                             layoutId="activeTab"
-                                            className="absolute -bottom-[1.5px] left-0 right-0 h-0.5 bg-gradient-to-r from-primary-400 to-primary-600"
+                                            // className="absolute -bottom-[1.5px] left-0 right-0 h-0.5 bg-gradient-to-r from-primary-400 to-primary-600"
                                             initial={false}
                                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                         />
@@ -50,8 +51,9 @@ const ContractHeader = () => {
                 </nav>
             </div>
             {/* right-wallet */}
-            <button className="px-5 py-2 rounded-md items-center bg-blue-600 hover:bg-blue-900 mr-10 text-white">
-                Connect Wallet</button>
+            <div className="mr-10">
+                <ConnectButton />
+            </div>
         </div>
     );
 };
