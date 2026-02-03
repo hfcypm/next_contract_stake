@@ -102,7 +102,6 @@ const Stake = () => {
         onLogs: (logs) => {
             //当前交易执行成功！！！
             toast.success('Stake successful!----！！！！！！');
-            console.log('质押成功的事件>>Deposit>>', logs);
             setIsLoading(false);
             setAmount('');
         },

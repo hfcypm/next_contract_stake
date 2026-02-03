@@ -33,7 +33,7 @@ export default function RootLayout({
         <Providers>
           <div className="bg-primary-800">
             <ContractHeader />
-            <main className="flex flex-col w-full">
+            <main className="flex flex-col w-full items-center justify-center">
               <ToastContainer
                 position="top-right"
                 autoClose={3000}
