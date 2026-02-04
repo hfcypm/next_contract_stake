@@ -177,7 +177,7 @@ const Stake = () => {
                 </p>
             </motion.div>
 
-            <div className="w-full my-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 mt-3 gap-6 mx-auto max-w-6xl">
                 {/* Stake Card */}
                 <Card className="min-h-[420px] p-4 sm:p-8 md:p-12 bg-gradient-to-br from-gray-800/80 to-gray-900/80 shadow-2xl border-primary-500/20 border-[1.5px] rounded-2xl sm:rounded-3xl">
                     <div className="space-y-2">

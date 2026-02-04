@@ -1,11 +1,15 @@
 'use client'
+import { motion } from "framer-motion";
+import { stakeAbi } from "@/app/assets/abis/stake";
+import { useStakeContract } from "@/app/hooks/useContract";
+import { Pid } from "@/app/utils";
 import { cn } from "@/app/utils/cn";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { motion, MotionConfig } from "framer-motion";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FiArrowUp, FiClock, FiInfo } from "react-icons/fi";
-import { useAccountEffect } from "wagmi";
-
+import { Address, formatUnits, parseUnits } from "viem";
+import { useAccount, useAccountEffect, useReadContract } from "wagmi";
+import { toast } from 'react-toastify';
 
 export type UserStakeData = {
     staked: string;
@@ -20,20 +24,45 @@ const initialData: UserStakeData = {
 }
 
 const Withdraw = () => {
-    const [isConnected, setConnected] = useState<boolean>(false);
+    //当前合约信息
+    const stakeContract = useStakeContract();
+    //当前钱包地址及连接状态
+    const { address, isConnected } = useAccount();
+    // const [isConnected, setConnected] = useState<boolean>(false);
     const [amount, setAmount] = useState<string>("");
     const [unstakeLoading, setUnstakeLoading] = useState<boolean>(false);
     const [userData, setUserData] = useState<UserStakeData>(initialData);
     const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
-    //wallet connect disconnect event
-    useAccountEffect({
-        onConnect: (account) => {
-            setConnected(true);
-        },
-        onDisconnect: () => {
-            setConnected(false);
-        }
+    //合约读取stakingBalance获取
+    const { refetch } = useReadContract({
+        abi: stakeAbi,
+        address: stakeContract?.address,
+        functionName: 'withdrawAmount',
+        args: [BigInt(Pid), address as Address],
     });
+    const dealUserData = useCallback(() => {
+        if (!address || !stakeContract) return;
+        refetch().then(result => {
+            console.log('data', result);
+            const cDataResult = result.data
+            const pendingWithdrawAmount = cDataResult?.[0];
+            const requestAmount = cDataResult?.[0];
+            if (pendingWithdrawAmount !== undefined) {
+                const ava = Number(formatUnits(pendingWithdrawAmount, 18));
+                console.log('pendingWithdrawAmount:::', ava);
+            }
+            if (requestAmount !== undefined) {
+                const total = Number(formatUnits(requestAmount, 18));
+                console.log('total:::', total);
+            }
+        });
+    }, [address, stakeContract]);
+    useEffect(() => {
+        if (!address || !stakeContract) {
+            return;
+        }
+        dealUserData();
+    }, [address, stakeContract, dealUserData]);
 
     const isWithdrawable = useMemo(() => {
         return Number(userData.withdrawable) > 0 && isConnected;
@@ -43,12 +72,11 @@ const Withdraw = () => {
     }
     //handleUnStake
     const handleUnStake = useCallback(async () => {
-        //todo: add unstake logic
-    }, []);
+    }, [stakeContract, amount]);
+
     //handleWithdraw
     const handleWithdraw = useCallback(async () => {
-        //todo: handleWithdraw logic
-    }, []);
+    }, [stakeContract]);
 
     return (
         <div className="w-full flex flex-col items-center justify-center mx-auto">
@@ -70,9 +98,9 @@ const Withdraw = () => {
             >
                 {/* stats grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <StateCard label="Staked Amount" value="0.0000" />
-                    <StateCard label="Available to Withdraw" value="0.0000" />
-                    <StateCard label="Pending Withdraw" value="0.0000" />
+                    <StateCard label="Staked Amount" value={`${parseFloat(userData.staked).toFixed(4)} ETH`} />
+                    <StateCard label="Available to Withdraw" value={`${parseFloat(userData.withdrawable).toFixed(4)} ETH`} />
+                    <StateCard label="Pending Withdraw" value={`${parseFloat(userData.withdrawPending).toFixed(4)} ETH`} />
                 </div>
 
                 {/* Unstake Section */}
@@ -170,7 +198,7 @@ const Withdraw = () => {
                             withdrawLoading ? (
                                 <>
                                     {/* loading */}
-                                    <div className="w-h h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                     <span>Processing...</span>
                                 </>
                             ) :
