@@ -1,9 +1,9 @@
-import { useAccount, useCall } from "wagmi";
+import { useAccountEffect, useCall } from "wagmi";
 import { useStakeContract } from "./useContract";
 import { useCallback, useEffect, useState } from "react";
 import { retryWithDelay } from "../utils/retry";
 import { Pid } from "../utils";
-import { formatUnits } from "viem";
+import { Address, formatUnits } from "viem";
 import { addMetaNodeToMetaMask } from "../utils/metamask";
 
 type RewardsData = {
@@ -20,8 +20,19 @@ type UserData = [bigint, bigint, bigint];
 const useRewards = () => {
     //合约数据
     const stakeContract = useStakeContract();
+    const [isConnected, setConnected] = useState(false);
+    const [address, setAddress] = useState<Address>();
     //钱包状态
-    const { address, isConnected } = useAccount();
+    useAccountEffect({
+        onConnect: (account) => {
+            console.log('钱包连接成功>>>>>useRewards', account.address);
+            setConnected(true);
+            setAddress(account.address);
+        },
+        onDisconnect: () => {
+            setConnected(false);
+        },
+    });
     // 奖励数据
     const [rewardsData, setRewardsData] = useState<RewardsData>({
         pendingRewards: "0",

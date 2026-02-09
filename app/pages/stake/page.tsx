@@ -1,59 +1,60 @@
 'use client'
-
-import { stakeAbi } from "@/app/assets/abis/stake";
 import { Button } from "@/app/components/ui/Button";
 import { Card } from "@/app/components/ui/Card";
 import { Input } from "@/app/components/ui/Input";
 import { useStakeContract } from "@/app/hooks/useContract";
 import useRewards from "@/app/hooks/useRewards";
+import { chainTConfig } from "@/app/providers";
 import { Pid } from "@/app/utils";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { log } from "console";
 import { motion } from "framer-motion";
-import { use, useEffectEvent, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiArrowDown, FiGift, FiInfo, FiTrendingUp, FiZap } from "react-icons/fi";
 import { toast } from "react-toastify";
-import { Address, zeroAddress } from "viem";
-import { sepolia } from "viem/chains";
+import { Address } from "viem/accounts";
 import { parseUnits } from "viem/utils";
-import { useAccount, useAccountEffect, useBalance, useWaitForTransactionReceipt, useWalletClient, useWatchContractEvent, useWriteContract } from "wagmi";
+import {
+    useAccountEffect, useBalance, useWalletClient, useWriteContract
+} from "wagmi";
+import { waitForTransactionReceipt } from "wagmi/actions";
+import { sepolia } from "wagmi/chains";
 
 const Stake = () => {
     //当前合约信息
     const stakeContract = useStakeContract();
     //当前钱包地址及连接状态
-    const { address } = useAccount();
+    const [tAddress, setTAddress] = useState('')
+    const [isConnected, setConnected] = useState<boolean>(false);
+    useAccountEffect({
+        onConnect: (account) => {
+            console.log('当前钱包地址：钱包连接成功>>>>>', account.address);
+            // setTAddress('当前钱包地址：' + account.address);
+            setTAddress(account.address);
+            setConnected(true);
+        },
+        onDisconnect: () => {
+            setConnected(false);
+            resetData();
+        }
+    });
     //奖励
-    const { rewardsData, poolData, canClaim, refresh, resetData } = useRewards();
+    const { rewardsData, poolData, canClaim, resetData, refresh } = useRewards();
     const [amount, setAmount] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [claimLoading, setClaimLoading] = useState(false);
-    const [isConnected, setisConnected] = useState(false);
     const { data } = useWalletClient();
-    // 监听钱包连接状态
-    useAccountEffect({
-        onConnect: (account) => {
-            console.log('钱包连接成功', account);
-            setisConnected(true);
-        },
-        onDisconnect: () => {
-            setisConnected(false);
-            //重置当前数据
-            resetData();
-        },
-    });
+    //合约读取写入
+    const { writeContract, data: stakeHash } = useWriteContract();
+    //交易结果的回调
     //代币余额
     const { data: balance } = useBalance({
-        address: address,
+        address: tAddress as Address,
         query: {
             enabled: isConnected,
             refetchInterval: 20000,
             refetchIntervalInBackground: false
         }
     });
-
-    //合约读取写入
-    const { writeContract, data: hash } = useWriteContract();
     //抵押代币
     const handleStak = async () => {
         if (!stakeContract || !data) {
@@ -88,30 +89,10 @@ const Stake = () => {
             setAmount('');
         }
     }
-
-    //监听合约事件（仅在成功时触发） 不能作用于点击事件中
-    //监听合约事件
-    //监听合约的状态（useWatchContractEvent） 事件
-    //sol中这个标记
-    //emit Deposit(msg.sender, _pid, _amount);
-    useWatchContractEvent({
-        address: process.env.NEXT_PUBLIC_STAKE_ADDRESS as Address,
-        abi: stakeAbi,
-        eventName: 'Deposit',
-        chainId: sepolia.id,
-        onLogs: (logs) => {
-            //当前交易执行成功！！！
-            toast.success('Stake successful!----！！！！！！');
-            setIsLoading(false);
-            setAmount('');
-        },
-    })
-
     //用户输入的事件
     const dealInputAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
         setAmount(e.target.value);
     }
-
     //领取奖励
     const handleClaim = async () => {
         if (!stakeContract || !data) return
@@ -119,7 +100,7 @@ const Stake = () => {
         try {
             setClaimLoading(true);
             rewardWriteContract({
-                address: stakeContract.address,
+                address: stakeContract.address as Address,
                 abi: stakeContract.abi,
                 functionName: 'claim',
                 args: [BigInt(Pid)],
@@ -136,20 +117,42 @@ const Stake = () => {
     }
 
     //领取奖励
-    const { writeContract: rewardWriteContract } = useWriteContract();
-    //监听领取奖励事件的监听
-    useWatchContractEvent({
-        address: process.env.NEXT_PUBLIC_STAKE_ADDRESS as Address,
-        abi: stakeAbi,
-        eventName: 'Claim',
-        chainId: sepolia.id,
-        onLogs: (logs) => {
-            console.log('领取奖励成功的事件>>Claim>>', logs);
-            //当前交易执行成功！！！
-            toast.success('Claim successful!----！！！！！！');
-            setClaimLoading(false);
-        },
-    })
+    const { writeContract: rewardWriteContract, data: claimHash } = useWriteContract();
+    //1 质押代币
+    //2 领取奖励
+    //以上两个结果的交易都需要监听交易确认
+    useEffect(() => {
+        if (!stakeHash || !isConnected) return;
+        waitForTransactionReceipt(chainTConfig, {
+            hash: stakeHash,
+        }).then((result) => {
+            if (result.status === 'success') {
+                console.log('质押成功交易>>>>', result);
+                toast.success('Stake successful!----！！！！！！');
+                setIsLoading(false);
+                setAmount('');
+            } else {
+                toast.error('Stake Transaction failed!');
+            }
+        }).catch((error) => {
+            console.log(error, '质押失败交易>>>>');
+            toast.error('Transaction failed. Please try again.');
+        });
+    }, [stakeContract, stakeHash]);
+    useEffect(() => {
+        if (!claimHash || !isConnected) return;
+        waitForTransactionReceipt(chainTConfig, {
+            hash: claimHash,
+        }).then((result) => {
+            if (result.status === 'success') {
+                console.log('领取奖励成功交易>>Claim>>', result);
+                toast.success('Claim successful!----！！！！！！');
+                setClaimLoading(false);
+            } else {
+                toast.error('Transaction failed!');
+            }
+        });
+    }, [stakeContract, claimHash]);
 
     return (
         <div className="flex flex-col w-ful h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -11,7 +11,7 @@ import {
     getDefaultConfig,
     RainbowKitProvider,
 } from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
+import { createConfig, http, WagmiProvider } from 'wagmi';
 
 import {
     mainnet,
@@ -27,6 +27,13 @@ import {
     QueryClientProvider,
     QueryClient,
 } from "@tanstack/react-query";
+
+export const chainTConfig = createConfig({
+    chains: [sepolia],
+    transports: {
+        [sepolia.id]: http()
+    }
+});
 
 // 配置您所需的链并生成所需的连接器。您还需要设置 wagmi 配置。
 // 如果您使用的是服务器端渲染(SSR) 的 dApp，请确保将 ssr 设置为 true。
