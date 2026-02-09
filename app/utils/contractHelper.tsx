@@ -1,7 +1,6 @@
 
 
 //abi: abi,address: address,chainId: chainId,
-import { address } from "framer-motion/client";
 import { Abi, Address, Chain, createPublicClient, getContract as getContractViem, http, WalletClient } from "viem";
 import { mainnet } from "wagmi/chains";
 

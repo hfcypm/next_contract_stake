@@ -68,7 +68,5 @@ export function useContract<tAbi extends Abi>(
 
 //抵押合约入口 获取相关合约信息
 export const useStakeContract = () => {
-    return useContract(
-        StakeContractAddress, stakeAbi
-    );
+    return useContract(StakeContractAddress as Address, stakeAbi as Abi);
 }

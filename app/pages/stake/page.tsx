@@ -14,7 +14,7 @@ import { toast } from "react-toastify";
 import { Address } from "viem/accounts";
 import { parseUnits } from "viem/utils";
 import {
-    useAccountEffect, useBalance, useWalletClient, useWriteContract
+    useAccount, useBalance, useWalletClient, useWriteContract
 } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
@@ -23,20 +23,9 @@ const Stake = () => {
     //当前合约信息
     const stakeContract = useStakeContract();
     //当前钱包地址及连接状态
-    const [tAddress, setTAddress] = useState('')
-    const [isConnected, setConnected] = useState<boolean>(false);
-    useAccountEffect({
-        onConnect: (account) => {
-            console.log('当前钱包地址：钱包连接成功>>>>>', account.address);
-            // setTAddress('当前钱包地址：' + account.address);
-            setTAddress(account.address);
-            setConnected(true);
-        },
-        onDisconnect: () => {
-            setConnected(false);
-            resetData();
-        }
-    });
+    const { address, isConnected } = useAccount();
+    console.log('当前钱包地址>>>>Stake>>address', address);
+    console.log('当前钱包地址状态>>>>Stake>>>isConnected', isConnected);
     //奖励
     const { rewardsData, poolData, canClaim, resetData, refresh } = useRewards();
     const [amount, setAmount] = useState('');
@@ -48,10 +37,10 @@ const Stake = () => {
     //交易结果的回调
     //代币余额
     const { data: balance } = useBalance({
-        address: tAddress as Address,
+        address: address,
         query: {
             enabled: isConnected,
-            refetchInterval: 20000,
+            refetchInterval: 50000,
             refetchIntervalInBackground: false
         }
     });
@@ -122,7 +111,7 @@ const Stake = () => {
     //2 领取奖励
     //以上两个结果的交易都需要监听交易确认
     useEffect(() => {
-        if (!stakeHash || !isConnected) return;
+        if (!stakeHash || !isConnected || !address) return;
         waitForTransactionReceipt(chainTConfig, {
             hash: stakeHash,
         }).then((result) => {
@@ -138,9 +127,9 @@ const Stake = () => {
             console.log(error, '质押失败交易>>>>');
             toast.error('Transaction failed. Please try again.');
         });
-    }, [stakeContract, stakeHash]);
+    }, [stakeContract, stakeHash, address]);
     useEffect(() => {
-        if (!claimHash || !isConnected) return;
+        if (!claimHash || !isConnected || !address) return;
         waitForTransactionReceipt(chainTConfig, {
             hash: claimHash,
         }).then((result) => {
@@ -152,7 +141,7 @@ const Stake = () => {
                 toast.error('Transaction failed!');
             }
         });
-    }, [stakeContract, claimHash]);
+    }, [stakeContract, claimHash, isConnected]);
 
     return (
         <div className="flex flex-col w-ful h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
