@@ -25,7 +25,6 @@ const Stake = () => {
     //当前钱包地址及连接状态
     const { address, isConnected } = useAccount();
     console.log('当前钱包地址>>>>Stake>>address', address);
-    console.log('当前钱包地址状态>>>>Stake>>>isConnected', isConnected);
     //奖励
     const { rewardsData, poolData, canClaim, resetData, refresh } = useRewards();
     const [amount, setAmount] = useState('');

@@ -12,9 +12,9 @@ import { useAccount, useAccountEffect, useReadContract } from "wagmi";
 import { toast } from 'react-toastify';
 
 export type UserStakeData = {
-    staked: string;
-    withdrawPending: string;
-    withdrawable: string;
+    staked?: string;
+    withdrawPending?: string;
+    withdrawable?: string;
 }
 
 const initialData: UserStakeData = {
@@ -28,12 +28,27 @@ const Withdraw = () => {
     const stakeContract = useStakeContract();
     //当前钱包地址及连接状态
     const { address, isConnected } = useAccount();
-    // const [isConnected, setConnected] = useState<boolean>(false);
     const [amount, setAmount] = useState<string>("");
     const [unstakeLoading, setUnstakeLoading] = useState<boolean>(false);
     const [userData, setUserData] = useState<UserStakeData>(initialData);
     const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
     //合约读取stakingBalance获取
+    const { refetch: refetchStakedAmount } = useReadContract({
+        abi: stakeAbi,
+        address: stakeContract?.address,
+        functionName: "stakingBalance",
+        args: [BigInt(Pid), address as Address],
+    });
+    //质押数量处理
+    const dealStakedAmount = useCallback(() => {
+        if (!stakeContract || !address) {
+            return;
+        }
+        refetchStakedAmount().then((res) => {
+            console.log('stakingBalance:::', res.data);
+            initialData.staked = res.data ? formatUnits(res.data, 18) : "0"
+        });
+    }, [address, stakeContract]);
     const { refetch } = useReadContract({
         abi: stakeAbi,
         address: stakeContract?.address,
@@ -43,13 +58,13 @@ const Withdraw = () => {
     const dealUserData = useCallback(() => {
         if (!address || !stakeContract) return;
         refetch().then(result => {
-            console.log('data', result);
+            console.log('<<<<<data>>>>>>>', result);
             const cDataResult = result.data
             const pendingWithdrawAmount = cDataResult?.[0];
             const requestAmount = cDataResult?.[0];
             if (pendingWithdrawAmount !== undefined) {
                 const ava = Number(formatUnits(pendingWithdrawAmount, 18));
-                console.log('pendingWithdrawAmount:::', ava);
+                console.log('pendingWithdrawAmount:::', ava)
             }
             if (requestAmount !== undefined) {
                 const total = Number(formatUnits(requestAmount, 18));
@@ -61,6 +76,8 @@ const Withdraw = () => {
         if (!address || !stakeContract) {
             return;
         }
+        //处理质押amount
+        dealStakedAmount();
         dealUserData();
     }, [address, stakeContract, dealUserData]);
 
