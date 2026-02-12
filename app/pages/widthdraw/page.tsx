@@ -10,11 +10,12 @@ import { FiArrowUp, FiClock, FiInfo } from "react-icons/fi";
 import { Address, formatUnits, parseUnits } from "viem";
 import { useAccount, useAccountEffect, useReadContract } from "wagmi";
 import { toast } from 'react-toastify';
+import { Preahvihear } from "next/font/google";
 
 export type UserStakeData = {
-    staked?: string;
-    withdrawPending?: string;
-    withdrawable?: string;
+    staked: string;//质押数量
+    withdrawPending: string;//提现中数量
+    withdrawable: string;//可提现数量
 }
 
 const initialData: UserStakeData = {
@@ -49,37 +50,44 @@ const Withdraw = () => {
             initialData.staked = res.data ? formatUnits(res.data, 18) : "0"
         });
     }, [address, stakeContract]);
-    const { refetch } = useReadContract({
+    const { refetch: refetchWidthDrawAmount } = useReadContract({
         abi: stakeAbi,
         address: stakeContract?.address,
         functionName: 'withdrawAmount',
         args: [BigInt(Pid), address as Address],
     });
     const dealUserData = useCallback(() => {
+        console.log('<<<<<data>>>>>>>', '开始请求可提现数量');
         if (!address || !stakeContract) return;
-        refetch().then(result => {
-            console.log('<<<<<data>>>>>>>', result);
-            const cDataResult = result.data
-            const pendingWithdrawAmount = cDataResult?.[0];
-            const requestAmount = cDataResult?.[0];
-            if (pendingWithdrawAmount !== undefined) {
-                const ava = Number(formatUnits(pendingWithdrawAmount, 18));
-                console.log('pendingWithdrawAmount:::', ava)
-            }
-            if (requestAmount !== undefined) {
-                const total = Number(formatUnits(requestAmount, 18));
-                console.log('total:::', total);
-            }
+        refetchWidthDrawAmount().then(result => {
+            const [requestAmount, pendingWithdrawAmount] = result.data || [0, 0];
+            console.log('requestAmount:::', requestAmount);
+            console.log('pendingWithdrawAmount:::', pendingWithdrawAmount);
+            //总的数量
+            const total = formatUnits(BigInt(requestAmount), 18);
+            //可以提现的
+            const withdrawableAmount = formatUnits(BigInt(pendingWithdrawAmount), 18);
+            //提现中
+            const pendingWithdraw = (Number(total) - Number(withdrawableAmount)).toFixed(4);
+            console.log('total:::', total);
+            console.log('pendingWithdraw:::', pendingWithdraw);
+            console.log('withdrawableAmount:::', withdrawableAmount);
+            //更新卡片数据
+            setUserData(preData => ({
+                ...preData,
+                withdrawable: withdrawableAmount,
+                withdrawPending: pendingWithdraw,
+            }))
         });
     }, [address, stakeContract]);
     useEffect(() => {
         if (!address || !stakeContract) {
             return;
         }
+        dealUserData();
         //处理质押amount
         dealStakedAmount();
-        dealUserData();
-    }, [address, stakeContract, dealUserData]);
+    }, [address, stakeContract, dealUserData, dealStakedAmount]);
 
     const isWithdrawable = useMemo(() => {
         return Number(userData.withdrawable) > 0 && isConnected;
