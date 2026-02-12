@@ -163,9 +163,48 @@ const Withdraw = () => {
 
     }, [stakeContract, address, unStakeHash, dealUserData]);
 
-    //handleWithdraw
+    //handleWithdraw Withdraw (提取)操作 合约写入
+    const { writeContract: writWithDrawContract, data: withdrawHash } = useWriteContract();
     const handleWithdraw = useCallback(async () => {
-    }, [stakeContract]);
+        if (!stakeContract || !address || !walletClient) return;
+        console.log('开始发起提现交易');
+        setWithdrawLoading(true);
+        try {
+            //Withdraw (提取)
+            // "inputs": [
+            //       {
+            //         "internalType": "uint256",
+            //         "name": "_pid",
+            //         "type": "uint256"
+            //       }
+            //     ],
+            writWithDrawContract({
+                address: stakeContract.address,
+                abi: stakeContract.abi,
+                functionName: 'withdraw',
+                args: [BigInt(Pid)],
+                chainId: sepolia.id,
+            });
+        } catch (error) {
+            console.log('error:::', error);
+            toast.error('Withdraw failed');
+            setWithdrawLoading(false);
+        }
+    }, [stakeContract, address]);
+    //提现交易结果监听内容
+    useEffect(() => {
+        if (!withdrawHash || !isConnected || !address) return;
+        waitForTransactionReceipt(chainTConfig, { hash: withdrawHash }).then((result) => {
+            console.log('提现交易结果>>Withdraw>>', result);
+            if (result.status == 'success') {
+                toast.success('Withdraw successful!');
+            }
+            setWithdrawLoading(false);
+            dealUserData();
+            dealStakedAmount();
+        });
+
+    }, [stakeContract, address]);
 
     return (
         <div className="w-full flex flex-col items-center justify-center mx-auto">
