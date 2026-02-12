@@ -8,9 +8,11 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FiArrowUp, FiClock, FiInfo } from "react-icons/fi";
 import { Address, formatUnits, parseUnits } from "viem";
-import { useAccount, useAccountEffect, useReadContract } from "wagmi";
-import { toast } from 'react-toastify';
-import { Preahvihear } from "next/font/google";
+import { useAccount, useReadContract, useWalletClient, useWriteContract } from "wagmi";
+import { chainTConfig } from "@/app/providers";
+import { waitForTransactionReceipt } from "wagmi/actions";
+import { toast } from "react-toastify";
+import { sepolia } from "wagmi/chains";
 
 export type UserStakeData = {
     staked: string;//质押数量
@@ -29,7 +31,10 @@ const Withdraw = () => {
     const stakeContract = useStakeContract();
     //当前钱包地址及连接状态
     const { address, isConnected } = useAccount();
+    //用户输入的事件
     const [amount, setAmount] = useState<string>("");
+    //钱包交互实例
+    const { data: walletClient } = useWalletClient();
     const [unstakeLoading, setUnstakeLoading] = useState<boolean>(false);
     const [userData, setUserData] = useState<UserStakeData>(initialData);
     const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
@@ -48,8 +53,13 @@ const Withdraw = () => {
         refetchStakedAmount().then((res) => {
             console.log('stakingBalance:::', res.data);
             initialData.staked = res.data ? formatUnits(res.data, 18) : "0"
+            setUserData(prevData => ({
+                ...prevData,
+                staked: initialData.staked,
+            }));
         });
     }, [address, stakeContract]);
+
     const { refetch: refetchWidthDrawAmount } = useReadContract({
         abi: stakeAbi,
         address: stakeContract?.address,
@@ -92,12 +102,66 @@ const Withdraw = () => {
     const isWithdrawable = useMemo(() => {
         return Number(userData.withdrawable) > 0 && isConnected;
     }, [userData, isConnected]);
+    // 用户输入的提现数量
     const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setAmount(event.target.value);
+        const value = event.target.value;
+        if (/^\d*(\.\d*)?$/.test(value)) {
+            setAmount(value);
+        }
     }
     //handleUnStake
-    const handleUnStake = useCallback(async () => {
-    }, [stakeContract, amount]);
+    //合约写入
+    const { writeContract, data: unStakeHash } = useWriteContract();
+    //发起解质押交易
+    const handleUnStake = async () => {
+        if (!stakeContract || !address || !walletClient) return;
+        //输入的数量不能大于质押数量
+        if (Number(amount) > Number(userData.staked)) {
+            toast.error('Insufficient balance');
+            return;
+        }
+        if (!amount || Number(amount) <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+        console.log('开始发起解质押交易');
+        setUnstakeLoading(true);
+        try {
+            //合约传参需要小数 做转换
+            writeContract({
+                address: stakeContract.address,
+                abi: stakeContract.abi,
+                functionName: 'unstake',
+                args: [BigInt(Pid), parseUnits(amount, 18)],
+                chainId: sepolia.id,
+            });
+        } catch (error) {
+            console.log('error:::', error);
+            toast.error('Unstake failed');
+        }
+    }
+    //解质押交易结果监听
+    useEffect(() => {
+        if (!unStakeHash || !isConnected || !address) return;
+
+        waitForTransactionReceipt(chainTConfig, { hash: unStakeHash })
+            .then((result) => {
+                console.log('解质押交易结果>>Unstake>>', result);
+                //交易结果收到重新刷新当前页数据
+                if (result.status === 'success') {
+                    toast.success('Unstake success');
+                    //清空用户输入框
+                    setAmount('');
+                    dealUserData();
+                    //处理质押amount
+                    dealStakedAmount();
+                } else {
+                    toast.error('Unstake failed');
+                }
+                setUnstakeLoading(false);
+            });
+
+    }, [stakeContract, address, unStakeHash, dealUserData]);
 
     //handleWithdraw
     const handleWithdraw = useCallback(async () => {
@@ -164,7 +228,7 @@ const Withdraw = () => {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={handleUnStake}
-                                    disabled={!amount || unstakeLoading}
+                                    // disabled={!amount || unstakeLoading}
                                     className={cn(
                                         "btn-primary w-full flex justify-center items-center space-x-2",
                                         unstakeLoading && "opcation-70 cursor-not-allowed"
