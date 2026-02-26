@@ -164,10 +164,12 @@ const Withdraw = () => {
     }, [stakeContract, address, unStakeHash, dealUserData]);
 
     //handleWithdraw Withdraw (提取)操作 合约写入
-    const { writeContract: writWithDrawContract, data: withdrawHash } = useWriteContract();
+    const { writeContract: writeWithDrawContract, data: withdrawHash } = useWriteContract();
     const handleWithdraw = useCallback(async () => {
         if (!stakeContract || !address || !walletClient) return;
         console.log('开始发起提现交易');
+        console.log('address:', address);
+        console.log('abi:', stakeContract.abi);
         setWithdrawLoading(true);
         try {
             //Withdraw (提取)
@@ -178,7 +180,7 @@ const Withdraw = () => {
             //         "type": "uint256"
             //       }
             //     ],
-            writWithDrawContract({
+            writeWithDrawContract({
                 address: stakeContract.address,
                 abi: stakeContract.abi,
                 functionName: 'withdraw',
@@ -190,21 +192,22 @@ const Withdraw = () => {
             toast.error('Withdraw failed');
             setWithdrawLoading(false);
         }
-    }, [stakeContract, address]);
+    }, [stakeContract, address, walletClient]);
     //提现交易结果监听内容
     useEffect(() => {
+        console.log('提现交易withdrawHash::>>>', withdrawHash);
         if (!withdrawHash || !isConnected || !address) return;
-        waitForTransactionReceipt(chainTConfig, { hash: withdrawHash }).then((result) => {
-            console.log('提现交易结果>>Withdraw>>', result);
-            if (result.status == 'success') {
-                toast.success('Withdraw successful!');
-            }
-            setWithdrawLoading(false);
-            dealUserData();
-            dealStakedAmount();
-        });
-
-    }, [stakeContract, address]);
+        waitForTransactionReceipt(chainTConfig, { hash: withdrawHash })
+            .then((result) => {
+                console.log('提现交易结果>>Withdraw>>', result);
+                if (result.status == 'success') {
+                    toast.success('Withdraw successful!');
+                }
+                setWithdrawLoading(false);
+                dealUserData();
+                dealStakedAmount();
+            });
+    }, [withdrawHash,isConnected,address,stakeContract]);
 
     return (
         <div className="w-full flex flex-col items-center justify-center mx-auto">
@@ -267,7 +270,7 @@ const Withdraw = () => {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={handleUnStake}
-                                    // disabled={!amount || unstakeLoading}
+                                    disabled={!amount || unstakeLoading}
                                     className={cn(
                                         "btn-primary w-full flex justify-center items-center space-x-2",
                                         unstakeLoading && "opcation-70 cursor-not-allowed"
@@ -297,7 +300,7 @@ const Withdraw = () => {
                         <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
                             <div>
                                 <div className="text-sm font-medium text-gray-600">Ready to Withdraw</div>
-                                <div className="text-2xl font-semibold text-primary-600">0.0000 ETH</div>
+                                <div className="text-2xl font-semibold text-primary-600">{parseFloat(userData.withdrawable).toFixed(4)} ETH</div>
                             </div>
                             <div className="flex items-center text-sm text-gray-500">
                                 <FiClock className="mr-1" />
